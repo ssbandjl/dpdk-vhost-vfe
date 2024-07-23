@@ -1,0 +1,30 @@
+app/virtio-ha/main.c
+
+
+app/vfe-vdpa/main.c -> main
+    virtio_ha_client_start(vdpa_rpc_set_ha_version_time)
+    rte_eal_vfio_get_vf_token
+    rte_eal_vfio_set_vf_token
+    parse_args(argc, argv)
+    virtio_ha_client_dev_restore_pf
+        virtio_ha_pf_list_query(&pf_list)
+        rte_vdpa_pf_dev_add
+        virtio_ha_prio_chnl_init
+    vdpa_rpc_start
+    virtio_ha_client_dev_restore_vf
+    virtio_ha_client_init_finish
+
+
+
+vhostd.md
+
+cd dpdk-vhost-vfe
+python ./app/vfe-vdpa/vhostmgmt mgmtpf -a 0000:af:00.3
+    args.client.call('mgmtpf', params) -> static cJSON *mgmtpf
+        vdpa_pf_dev_add
+            rte_vdpa_pf_dev_add(pf_name)
+                rte_vdpa_get_mi_by_bdf(pf_name)
+                    rte_pci_addr_parse(bdf, &dev_addr)
+                rte_eal_hotplug_add("pci", pf_name, "vdpa=2")
+
+
