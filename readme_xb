@@ -28,3 +28,83 @@ python ./app/vfe-vdpa/vhostmgmt mgmtpf -a 0000:af:00.3
                 rte_eal_hotplug_add("pci", pf_name, "vdpa=2")
 
 
+
+
+6. Bind the VirtIO device with VFIO.
+modprobe vfio vfio_pci
+echo 1 > /sys/module/vfio_pci/parameters/enable_sriov
+echo 0x1af4 0x1041 > /sys/bus/pci/drivers/vfio-pci/new_id
+echo 0x1af4 0x1042 > /sys/bus/pci/drivers/vfio-pci/new_id
+echo 0000:af:00.2 > /sys/bus/pci/drivers/vfio-pci/bind
+echo 0000:af:00.3 > /sys/bus/pci/drivers/vfio-pci/bind
+
+lspci -vvv -s 0000:af:00.3 | grep "Kernel driver"
+Kernel driver in use: vfio-pci
+
+lspci -vvv -s 0000:af:00.2 | grep "Kernel driver"
+Kernel driver in use: vfio-pci
+
+6.2. Create a VF.
+echo 1 > /sys/bus/pci/devices/0000:af:00.2/sriov_numvfs
+echo 1 > /sys/bus/pci/devices/0000:af:00.3/sriov_numvfs
+
+6.3. Add a VF representor to the OVS bridge on the DPU.
+virtnet query -p 0 -v 0 | grep sf_rep_net_device
+"sf_rep_net_device": "en3f0pf0sf3000",
+ovs-vsctl add-port ovsbr1 en3f0pf0sf3000
+
+6.4. Run the VFE vDPA application.
+cd dpdk-vhost-vfe
+sudo ./build/app/dpdk-vfe-vdpa -a 0000:00:00.0 --log-level=.,8 --vfio-vftoken=cdc786f0-59d4-41d9-b554-fed36ff5e89f -- --client
+
+6.5. Provision the VirtIO net PF.
+cd dpdk-vhost-vfe
+python ./app/vfe-vdpa/vhostmgmt mgmtpf -a 0000:af:00.2
+
+# on bf2, change VF mac address
+virtnet modify -p 0 -v 0 device -m 00:00:00:00:33:00
+python ./app/vfe-vdpa/vhostmgmt vf -a 0000:af:04.5 -v /tmp/vfe-net0
+
+6.6. Provision the virtio-blk PF.
+cd dpdk-vhost-vfe
+python ./app/vfe-vdpa/vhostmgmt mgmtpf -a 0000:af:00.3
+    args.client.call('mgmtpf', params) -> rte_vdpa_pf_dev_add
+        rte_eal_hotplug_add("pci", pf_name, "vdpa=2")
+
+# on bf2, create VF device
+snap_rpc.py controller_virtio_blk_create mlx5_0 --pf_id 0 --vf_id 0 --bdev_type spdk --bdev Null0 --force_in_order
+python ./app/vfe-vdpa/vhostmgmt vf -a 0000:af:05.1 -v /tmp/vfe-blk0
+
+Add virtio-blk PF to vhost acceleration service
+vfe-vhost-cli mgmtpf -a 0000:af:00.3
+
+Add virtio-blk VF to vhostd service
+vfe-vhost-cli vf -a 0000:af:05.1 -v /tmp/vhost-blk0
+
+
+
+
+static cJSON *mgmtvf
+    result = vdpa_vf_dev_add(vf_dev->valuestring, NULL,	socket_file ? socket_file->valuestring : NULL, uuid ? uuid->valuestring : NULL)
+        rte_eal_hotplug_add("pci", vf_name, args)
+    else
+        vdpa_vf_dev_remove
+            virtio_ha_client_vf_in_restore
+                TAILQ_FOREACH(vf_dev, &rq.non_prio_q, next)
+                    add_vf_to_priority_queue(vf_dev)
+                        TAILQ_REMOVE(&rq.non_prio_q, vf_dev, next)
+	                    TAILQ_INSERT_TAIL(&rq.prio_q, vf_dev, next)
+            virtio_ha_dev_lock
+            vdpa_with_socket_path_stop
+                close_vdpa(vport)
+                    rte_vhost_driver_detach_vdpa_device(socket_path)
+                    rte_vhost_driver_unregister(socket_path)
+            rte_vdpa_vf_dev_remove
+                rte_eal_hotplug_remove("pci", vf_name)
+            virtio_ha_dev_unlock
+    else
+        vdpa_vf_dev_list
+    else
+        vdpa_vf_dev_info
+    else
+        vdpa_vf_dev_debug
